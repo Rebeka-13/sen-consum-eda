@@ -4,7 +4,6 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import re
-from io import BytesIO
 
 
 # ============================================================
@@ -257,6 +256,11 @@ df = df.dropna(subset=["Consum"])
 
 df = df.sort_values("DataOra")
 
+# Elimină înregistrările duplicate (același DataOra apare de mai multe
+# ori în unele exporturi, cu valori identice) — altfel se dublează
+# ponderea acelor observații în medii/histograme.
+df = df.drop_duplicates(subset="DataOra", keep="first")
+
 
 # ============================================================
 # INFORMAȚII DESPRE DATASET
@@ -423,9 +427,19 @@ st.plotly_chart(
 
 col1, col2, col3 = st.columns(3)
 
-min_row = profil_orar.loc[
-    profil_orar["Consum"].idxmin()
+# Noapte: 00-06 (conform glosarului, golul e tipic ~02-05)
+noapte = profil_orar[
+    profil_orar["Ora"].between(0, 6)
 ]
+
+if not noapte.empty:
+    min_row = noapte.loc[
+        noapte["Consum"].idxmin()
+    ]
+else:
+    min_row = profil_orar.loc[
+        profil_orar["Consum"].idxmin()
+    ]
 
 max_row = profil_orar.loc[
     profil_orar["Consum"].idxmax()
@@ -706,10 +720,21 @@ if not evening_df.empty:
 
 
     # Distribuția orelor de vârf
-    fig_peak = px.histogram(
-        evening_peak,
+    # (bar pe valori exacte de oră, nu histogram cu nbins — cu doar
+    # 7 valori întregi posibile (17-23), nbins=7 plasează marginile
+    # binurilor între ore și amestecă zilele în binul greșit)
+    ore_counts = (
+        evening_peak["Ora"]
+        .value_counts()
+        .reindex(range(17, 24), fill_value=0)
+        .reset_index()
+    )
+    ore_counts.columns = ["Ora", "NumarZile"]
+
+    fig_peak = px.bar(
+        ore_counts,
         x="Ora",
-        nbins=7,
+        y="NumarZile",
         title="Distribuția orei vârfului de seară"
     )
 
