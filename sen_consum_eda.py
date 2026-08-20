@@ -305,17 +305,50 @@ st.sidebar.write(
 st.sidebar.markdown("---")
 st.sidebar.header("🎉 Sărbători")
 
+# Sărbători legale fixe (lună, zi) — se aplică automat pentru
+# fiecare an prezent în dataset, fără să mai fie nevoie să le scrii.
+SARBATORI_FIXE = [
+    (1, 1, "Anul Nou"),
+    (1, 2, "Anul Nou"),
+    (1, 24, "Ziua Unirii"),
+    (5, 1, "Ziua Muncii"),
+    (6, 1, "Ziua Copilului"),
+    (8, 15, "Adormirea Maicii Domnului"),
+    (11, 30, "Sf. Andrei"),
+    (12, 1, "Ziua Națională"),
+    (12, 25, "Crăciun"),
+    (12, 26, "Crăciun"),
+]
+
+ani_din_date = sorted(df["An"].unique())
+
+holiday_dates = set()
+
+for an in ani_din_date:
+    for luna, zi, _nume in SARBATORI_FIXE:
+        try:
+            holiday_dates.add(pd.Timestamp(year=an, month=luna, day=zi).date())
+        except ValueError:
+            pass
+
+use_fixed_holidays = st.sidebar.checkbox(
+    "Include sărbătorile legale fixe (Crăciun, 1 mai, etc.)",
+    value=True
+)
+
+if not use_fixed_holidays:
+    holiday_dates = set()
+
 st.sidebar.caption(
-    "Introdu datele sărbătorilor separate prin virgulă. "
-    "Exemplu: 25-12-2025, 26-12-2025"
+    "Sărbătorile cu dată variabilă (Paște, Rusalii) nu pot fi "
+    "calculate automat — adaugă-le mai jos, separate prin virgulă. "
+    "Exemplu: 20-04-2025, 21-04-2025"
 )
 
 holiday_text = st.sidebar.text_input(
-    "Date sărbători",
+    "Alte sărbători / date speciale",
     value=""
 )
-
-holiday_dates = set()
 
 if holiday_text.strip():
 
@@ -502,11 +535,17 @@ st.subheader("🔎 Analiza unei zile")
 
 available_dates = sorted(df["Data"].unique())
 
-selected_date = st.selectbox(
+selected_date = st.date_input(
     "Alege ziua pe care vrei să o analizezi:",
-    available_dates,
-    format_func=lambda x: x.strftime("%d-%m-%Y")
+    value=available_dates[-1],
+    min_value=available_dates[0],
+    max_value=available_dates[-1]
 )
+
+if selected_date not in df["Data"].values:
+    st.warning(
+        "Nu există observații pentru data selectată în dataset."
+    )
 
 
 day_df = df[
