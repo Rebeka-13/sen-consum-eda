@@ -4,7 +4,8 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import re
-
+import requests
+import statsmodels
 
 # ============================================================
 # CONFIGURARE
@@ -135,6 +136,79 @@ def add_time_features(df):
     return df
 
 
+def get_temperature_data(start_date, end_date):
+    """
+    Descarcă temperatura orară pentru 5 orașe din România
+    și calculează temperatura medie națională aproximativă.
+    """
+
+    cities = {
+        "Bucuresti": (44.4268, 26.1025),
+        "Cluj": (46.7712, 23.6236),
+        "Iasi": (47.1585, 27.6014),
+        "Timisoara": (45.7489, 21.2087),
+        "Constanta": (44.1598, 28.6348)
+    }
+
+    all_temperatures = []
+
+    for city, (latitude, longitude) in cities.items():
+
+        url = "https://archive-api.open-meteo.com/v1/archive"
+
+        params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "start_date": start_date,
+            "end_date": end_date,
+            "hourly": "temperature_2m",
+            "timezone": "Europe/Bucharest"
+        }
+
+        response = requests.get(
+            url,
+            params=params,
+            timeout=30
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        city_df = pd.DataFrame({
+            "DataOra": data["hourly"]["time"],
+            city: data["hourly"]["temperature_2m"]
+        })
+
+        city_df["DataOra"] = pd.to_datetime(
+            city_df["DataOra"]
+        )
+
+        all_temperatures.append(city_df)
+
+    # Combinăm cele 5 orașe după DataOra
+    temperature_df = all_temperatures[0]
+
+    for city_df in all_temperatures[1:]:
+        temperature_df = temperature_df.merge(
+            city_df,
+            on="DataOra",
+            how="outer"
+        )
+
+    # Temperatura medie a celor 5 orașe
+    city_columns = list(cities.keys())
+
+    temperature_df["Temperatura"] = (
+        temperature_df[city_columns]
+        .mean(axis=1)
+    )
+
+    return temperature_df[
+        ["DataOra", "Temperatura"]
+    ]
+
+
 # ============================================================
 # UPLOAD EXCEL
 # ============================================================
@@ -224,8 +298,6 @@ df = df.rename(
 if hourly_col is not None:
     df = df.rename(columns={hourly_col: "MedieOraraConsum"})
 
-if temp_col is not None:
-    df = df.rename(columns={temp_col: "Temperatura"})
 
 
 # ============================================================
@@ -255,6 +327,32 @@ df = add_time_features(df)
 df = df.dropna(subset=["Consum"])
 
 df = df.sort_values("DataOra")
+
+# ============================================================
+# TEMPERATURĂ ORARĂ - OPEN-METEO
+# ============================================================
+
+try:
+
+    start_date = df["DataOra"].min().strftime("%Y-%m-%d")
+    end_date = df["DataOra"].max().strftime("%Y-%m-%d")
+
+    temperature_df = get_temperature_data(
+        start_date,
+        end_date
+    )
+
+    df = df.merge(
+        temperature_df,
+        on="DataOra",
+        how="left"
+    )
+
+except Exception as e:
+
+    st.warning(
+        f"Nu am putut descărca datele de temperatură: {e}"
+    )
 
 # Elimină înregistrările duplicate (același DataOra apare de mai multe
 # ori în unele exporturi, cu valori identice) — altfel se dublează
@@ -927,7 +1025,6 @@ else:
             x="Temperatura",
             y="Consum",
             opacity=0.35,
-            trendline="ols",
             title="Relația dintre temperatură și consum"
         )
 
@@ -959,6 +1056,12 @@ else:
             )["Consum"]
             .mean()
             .reset_index()
+        )
+
+        # Transformăm intervalele în text pentru Plotly
+        temp_profile["IntervalTemperatura"] = (
+            temp_profile["IntervalTemperatura"]
+            .astype(str)
         )
 
         fig_temp_profile = px.line(
