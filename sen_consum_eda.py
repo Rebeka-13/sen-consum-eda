@@ -5,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import re
 import requests
-import statsmodels
 
 # ============================================================
 # CONFIGURARE
@@ -342,11 +341,21 @@ try:
         end_date
     )
 
+    # Transelectrica are timestamp-uri la secundă (ex: 14:57:52), iar
+    # Open-Meteo dă temperatura doar la oră fixă (ex: 14:00:00). Un merge
+    # direct pe "DataOra" cere potrivire exactă la secundă, deci aproape
+    # toate rândurile rămâneau fără temperatură. Rotunjim ambele la oră
+    # ("floor") înainte de merge, ca să se potrivească corect.
+    df["OraMeteo"] = df["DataOra"].dt.floor("h")
+    temperature_df["OraMeteo"] = temperature_df["DataOra"].dt.floor("h")
+
     df = df.merge(
-        temperature_df,
-        on="DataOra",
+        temperature_df[["OraMeteo", "Temperatura"]],
+        on="OraMeteo",
         how="left"
     )
+
+    df = df.drop(columns=["OraMeteo"])
 
 except Exception as e:
 
@@ -1007,19 +1016,6 @@ else:
 
     if len(temp_df) >= 10:
 
-        # Corelație Pearson
-        correlation = temp_df[
-            "Temperatura"
-        ].corr(
-            temp_df["Consum"]
-        )
-
-        st.metric(
-            "Corelație Pearson temperatură - consum",
-            f"{correlation:.3f}"
-        )
-
-
         fig_temp = px.scatter(
             temp_df,
             x="Temperatura",
@@ -1056,6 +1052,20 @@ else:
             )["Consum"]
             .mean()
             .reset_index()
+        )
+
+        # Temperatura (mijlocul intervalului) la care consumul mediu
+        # e minim — zona de "confort", fără nevoie de încălzire/răcire.
+        min_bin = temp_profile.loc[
+            temp_profile["Consum"].idxmin()
+        ]
+
+        temp_min_consum = min_bin["IntervalTemperatura"].mid
+
+        st.metric(
+            "🌡️ Temperatura cu consum mediu minim (zona de confort)",
+            f"~{temp_min_consum:.1f}°C",
+            f"{min_bin['Consum']:,.0f} MW"
         )
 
         # Transformăm intervalele în text pentru Plotly
