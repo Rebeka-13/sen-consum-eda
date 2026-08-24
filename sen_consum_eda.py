@@ -134,7 +134,7 @@ def add_time_features(df):
 
     return df
 
-
+@st.cache_data(ttl=86400)
 def get_temperature_data(start_date, end_date):
     """
     Descarcă temperatura orară pentru 5 orașe din România
