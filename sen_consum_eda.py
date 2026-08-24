@@ -517,590 +517,616 @@ with col4:
     )
 
 
-# ============================================================
-# 1. CURBA DE SARCINĂ
-# ============================================================
-
-st.header("1️⃣ Curba de sarcină tipică pe o zi")
-
-st.markdown(
-    """
-    Curba tipică este calculată ca **media consumului pentru fiecare
-    oră a zilei**, folosind toate zilele disponibile.
-    """
-)
-
-
-# Profil mediu pe ore
-profil_orar = (
-    df.groupby("Ora")["Consum"]
-    .mean()
-    .reset_index()
-)
-
-fig = px.line(
-    profil_orar,
-    x="Ora",
-    y="Consum",
-    markers=True,
-    title="Profilul mediu al consumului pe 24 de ore"
-)
-
-fig.update_xaxes(
-    dtick=1,
-    title="Ora"
-)
-
-fig.update_yaxes(
-    title="Consum mediu (MW)"
-)
-
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
-
-
-# ------------------------------------------------------------
-# VÂRFURI
-# ------------------------------------------------------------
-
-col1, col2, col3 = st.columns(3)
-
-# Noapte: 00-06 (conform glosarului, golul e tipic ~02-05)
-noapte = profil_orar[
-    profil_orar["Ora"].between(0, 6)
-]
-
-if not noapte.empty:
-    min_row = noapte.loc[
-        noapte["Consum"].idxmin()
-    ]
-else:
-    min_row = profil_orar.loc[
-        profil_orar["Consum"].idxmin()
-    ]
-
-max_row = profil_orar.loc[
-    profil_orar["Consum"].idxmax()
-]
-
-# Dimineața: 05-11
-dimineata = profil_orar[
-    profil_orar["Ora"].between(5, 11)
-]
-
-# Seara: 17-23
-seara = profil_orar[
-    profil_orar["Ora"].between(17, 23)
-]
-
-if not dimineata.empty:
-    peak_morning = dimineata.loc[
-        dimineata["Consum"].idxmax()
-    ]
-else:
-    peak_morning = None
-
-if not seara.empty:
-    peak_evening = seara.loc[
-        seara["Consum"].idxmax()
-    ]
-else:
-    peak_evening = None
-
-
-with col1:
-    st.metric(
-        "🌙 Gol de noapte",
-        f"{min_row['Consum']:,.0f} MW",
-        f"ora {int(min_row['Ora']):02d}:00"
-    )
-
-with col2:
-    if peak_morning is not None:
-        st.metric(
-            "🌅 Vârf de dimineață",
-            f"{peak_morning['Consum']:,.0f} MW",
-            f"ora {int(peak_morning['Ora']):02d}:00"
-        )
-
-with col3:
-    if peak_evening is not None:
-        st.metric(
-            "🌆 Vârf de seară",
-            f"{peak_evening['Consum']:,.0f} MW",
-            f"ora {int(peak_evening['Ora']):02d}:00"
-        )
-
 
 # ============================================================
-# ZI ALEASĂ
+# TABURI PENTRU CELE 6 ÎNTREBĂRI EDA
 # ============================================================
 
-st.subheader("🔎 Analiza unei zile")
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "1️⃣ Curba de sarcină",
+    "2️⃣ Raport vârf/gol",
+    "3️⃣ Tip zi",
+    "4️⃣ Vârf seară & sezon",
+    "5️⃣ Consum vs medie",
+    "6️⃣ Temperatură",
+])
 
-available_dates = sorted(df["Data"].unique())
+with tab1:
+    # ============================================================
+    # 1. CURBA DE SARCINĂ
+    # ============================================================
 
-selected_date = st.date_input(
-    "Alege ziua pe care vrei să o analizezi:",
-    value=available_dates[-1],
-    min_value=available_dates[0],
-    max_value=available_dates[-1]
-)
+    st.header("1️⃣ Curba de sarcină tipică pe o zi")
 
-if selected_date not in df["Data"].values:
-    st.warning(
-        "Nu există observații pentru data selectată în dataset."
+    st.markdown(
+        """
+        Curba tipică este calculată ca **media consumului pentru fiecare
+        oră a zilei**, folosind toate zilele disponibile.
+        """
     )
 
 
-day_df = df[
-    df["Data"] == selected_date
-].copy()
+    # Profil mediu pe ore
+    profil_orar = (
+        df.groupby("Ora")["Consum"]
+        .mean()
+        .reset_index()
+    )
 
-
-if not day_df.empty:
-
-    fig_day = px.line(
-        day_df,
-        x="DataOra",
+    fig = px.line(
+        profil_orar,
+        x="Ora",
         y="Consum",
         markers=True,
-        title=f"Consum în data de {selected_date.strftime('%d-%m-%Y')}"
+        title="Profilul mediu al consumului pe 24 de ore"
     )
 
-    fig_day.update_xaxes(
+    fig.update_xaxes(
+        dtick=1,
         title="Ora"
     )
 
-    fig_day.update_yaxes(
-        title="Consum (MW)"
+    fig.update_yaxes(
+        title="Consum mediu (MW)"
     )
 
     st.plotly_chart(
-        fig_day,
+        fig,
         use_container_width=True
     )
 
 
-    # MINIM / MAXIM ZILNIC
+    # ------------------------------------------------------------
+    # VÂRFURI
+    # ------------------------------------------------------------
 
-    min_day = day_df.loc[
-        day_df["Consum"].idxmin()
+    col1, col2, col3 = st.columns(3)
+
+    # Noapte: 00-06 (conform glosarului, golul e tipic ~02-05)
+    noapte = profil_orar[
+        profil_orar["Ora"].between(0, 6)
     ]
 
-    max_day = day_df.loc[
-        day_df["Consum"].idxmax()
-    ]
-
-    ratio = (
-        max_day["Consum"] /
-        min_day["Consum"]
-        if min_day["Consum"] != 0
-        else np.nan
-    )
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.metric(
-            "Consum minim",
-            f"{min_day['Consum']:,.0f} MW",
-            f"{min_day['DataOra']:%H:%M:%S}"
-        )
-
-    with c2:
-        st.metric(
-            "Consum maxim",
-            f"{max_day['Consum']:,.0f} MW",
-            f"{max_day['DataOra']:%H:%M:%S}"
-        )
-
-    with c3:
-        st.metric(
-            "Raport vârf / gol",
-            f"{ratio:.2f}"
-        )
-
-
-# ============================================================
-# 2. RAPORT VÂRF / GOL
-# ============================================================
-
-st.header("2️⃣ Raportul vârf / gol intrazilnic")
-
-st.markdown(
-    """
-    Pentru fiecare zi calculăm raportul dintre consumul maxim și
-    consumul minim din ziua respectivă.
-    """
-)
-
-
-daily_stats = (
-    df.groupby("Data")["Consum"]
-    .agg(
-        ConsumMinim="min",
-        ConsumMaxim="max"
-    )
-    .reset_index()
-)
-
-daily_stats["RaportVarfGol"] = (
-    daily_stats["ConsumMaxim"] /
-    daily_stats["ConsumMinim"]
-)
-
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Raport mediu",
-        f"{daily_stats['RaportVarfGol'].mean():.2f}"
-    )
-
-with col2:
-    st.metric(
-        "Raport median",
-        f"{daily_stats['RaportVarfGol'].median():.2f}"
-    )
-
-with col3:
-    st.metric(
-        "Raport minim",
-        f"{daily_stats['RaportVarfGol'].min():.2f}"
-    )
-
-with col4:
-    st.metric(
-        "Raport maxim",
-        f"{daily_stats['RaportVarfGol'].max():.2f}"
-    )
-
-
-fig_ratio = px.line(
-    daily_stats,
-    x="Data",
-    y="RaportVarfGol",
-    title="Variația zilnică a raportului vârf / gol"
-)
-
-fig_ratio.update_yaxes(
-    title="Raport vârf / gol"
-)
-
-st.plotly_chart(
-    fig_ratio,
-    use_container_width=True
-)
-
-
-# ============================================================
-# 3. LUCRĂTOARE VS WEEKEND VS SĂRBĂTORI
-# ============================================================
-
-st.header("3️⃣ Zile lucrătoare vs weekend vs sărbători")
-
-profile_day_type = (
-    df.groupby(["TipZi", "Ora"])["Consum"]
-    .mean()
-    .reset_index()
-)
-
-fig_types = px.line(
-    profile_day_type,
-    x="Ora",
-    y="Consum",
-    color="TipZi",
-    markers=True,
-    title="Profilul mediu al consumului în funcție de tipul zilei"
-)
-
-fig_types.update_xaxes(
-    dtick=1,
-    title="Ora"
-)
-
-fig_types.update_yaxes(
-    title="Consum mediu (MW)"
-)
-
-st.plotly_chart(
-    fig_types,
-    use_container_width=True
-)
-
-
-# ============================================================
-# 4. VÂRFUL DE SEARĂ ȘI SEZONALITATE
-# ============================================================
-
-st.header("4️⃣ Vârful de seară și sezonalitatea")
-
-st.markdown(
-    """
-    Considerăm intervalul 17:00–23:00 drept interval de seară.
-    Pentru fiecare zi identificăm ora la care consumul este maxim
-    în acest interval.
-    """
-)
-
-
-evening_df = df[
-    df["Ora"].between(17, 23)
-].copy()
-
-
-if not evening_df.empty:
-
-    evening_peak = (
-        evening_df
-        .loc[
-            evening_df.groupby("Data")["Consum"].idxmax()
+    if not noapte.empty:
+        min_row = noapte.loc[
+            noapte["Consum"].idxmin()
         ]
-        [["Data", "DataOra", "Ora", "Consum", "Sezon"]]
-        .copy()
+    else:
+        min_row = profil_orar.loc[
+            profil_orar["Consum"].idxmin()
+        ]
+
+    max_row = profil_orar.loc[
+        profil_orar["Consum"].idxmax()
+    ]
+
+    # Dimineața: 05-11
+    dimineata = profil_orar[
+        profil_orar["Ora"].between(5, 11)
+    ]
+
+    # Seara: 17-23
+    seara = profil_orar[
+        profil_orar["Ora"].between(17, 23)
+    ]
+
+    if not dimineata.empty:
+        peak_morning = dimineata.loc[
+            dimineata["Consum"].idxmax()
+        ]
+    else:
+        peak_morning = None
+
+    if not seara.empty:
+        peak_evening = seara.loc[
+            seara["Consum"].idxmax()
+        ]
+    else:
+        peak_evening = None
+
+
+    with col1:
+        st.metric(
+            "🌙 Gol de noapte",
+            f"{min_row['Consum']:,.0f} MW",
+            f"ora {int(min_row['Ora']):02d}:00"
+        )
+
+    with col2:
+        if peak_morning is not None:
+            st.metric(
+                "🌅 Vârf de dimineață",
+                f"{peak_morning['Consum']:,.0f} MW",
+                f"ora {int(peak_morning['Ora']):02d}:00"
+            )
+
+    with col3:
+        if peak_evening is not None:
+            st.metric(
+                "🌆 Vârf de seară",
+                f"{peak_evening['Consum']:,.0f} MW",
+                f"ora {int(peak_evening['Ora']):02d}:00"
+            )
+
+
+    # ============================================================
+    # ZI ALEASĂ
+    # ============================================================
+
+    st.subheader("🔎 Analiza unei zile")
+
+    available_dates = sorted(df["Data"].unique())
+
+    selected_date = st.date_input(
+        "Alege ziua pe care vrei să o analizezi:",
+        value=available_dates[-1],
+        min_value=available_dates[0],
+        max_value=available_dates[-1]
+    )
+
+    if selected_date not in df["Data"].values:
+        st.warning(
+            "Nu există observații pentru data selectată în dataset."
+        )
+
+
+    day_df = df[
+        df["Data"] == selected_date
+    ].copy()
+
+
+    if not day_df.empty:
+
+        fig_day = px.line(
+            day_df,
+            x="DataOra",
+            y="Consum",
+            markers=True,
+            title=f"Consum în data de {selected_date.strftime('%d-%m-%Y')}"
+        )
+
+        fig_day.update_xaxes(
+            title="Ora"
+        )
+
+        fig_day.update_yaxes(
+            title="Consum (MW)"
+        )
+
+        st.plotly_chart(
+            fig_day,
+            use_container_width=True
+        )
+
+
+        # MINIM / MAXIM ZILNIC
+
+        min_day = day_df.loc[
+            day_df["Consum"].idxmin()
+        ]
+
+        max_day = day_df.loc[
+            day_df["Consum"].idxmax()
+        ]
+
+        ratio = (
+            max_day["Consum"] /
+            min_day["Consum"]
+            if min_day["Consum"] != 0
+            else np.nan
+        )
+
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.metric(
+                "Consum minim",
+                f"{min_day['Consum']:,.0f} MW",
+                f"{min_day['DataOra']:%H:%M:%S}"
+            )
+
+        with c2:
+            st.metric(
+                "Consum maxim",
+                f"{max_day['Consum']:,.0f} MW",
+                f"{max_day['DataOra']:%H:%M:%S}"
+            )
+
+        with c3:
+            st.metric(
+                "Raport vârf / gol",
+                f"{ratio:.2f}"
+            )
+
+
+
+with tab2:
+    # ============================================================
+    # 2. RAPORT VÂRF / GOL
+    # ============================================================
+
+    st.header("2️⃣ Raportul vârf / gol intrazilnic")
+
+    st.markdown(
+        """
+        Pentru fiecare zi calculăm raportul dintre consumul maxim și
+        consumul minim din ziua respectivă.
+        """
     )
 
 
-    # Distribuția orelor de vârf
-    # (bar pe valori exacte de oră, nu histogram cu nbins — cu doar
-    # 7 valori întregi posibile (17-23), nbins=7 plasează marginile
-    # binurilor între ore și amestecă zilele în binul greșit)
-    ore_counts = (
-        evening_peak["Ora"]
-        .value_counts()
-        .reindex(range(17, 24), fill_value=0)
-        .reset_index()
-    )
-    ore_counts.columns = ["Ora", "NumarZile"]
-
-    fig_peak = px.bar(
-        ore_counts,
-        x="Ora",
-        y="NumarZile",
-        title="Distribuția orei vârfului de seară"
-    )
-
-    fig_peak.update_xaxes(
-        dtick=1,
-        title="Ora vârfului de seară"
-    )
-
-    fig_peak.update_yaxes(
-        title="Număr de zile"
-    )
-
-    st.plotly_chart(
-        fig_peak,
-        use_container_width=True
-    )
-
-
-    # Sezon
-    seasonal_peak = (
-        evening_peak
-        .groupby("Sezon")["Ora"]
+    daily_stats = (
+        df.groupby("Data")["Consum"]
         .agg(
-            OraMedie="mean",
-            OraMediana="median"
+            ConsumMinim="min",
+            ConsumMaxim="max"
         )
         .reset_index()
     )
 
-    st.subheader("Ora medie a vârfului de seară pe sezon")
-
-    st.dataframe(
-        seasonal_peak,
-        use_container_width=True,
-        hide_index=True
+    daily_stats["RaportVarfGol"] = (
+        daily_stats["ConsumMaxim"] /
+        daily_stats["ConsumMinim"]
     )
 
-
-# ============================================================
-# 5. CONSUM VS MEDIE ORARĂ
-# ============================================================
-
-st.header("5️⃣ Consum instantaneu vs Medie Orară Consum")
-
-
-if "MedieOraraConsum" not in df.columns:
-
-    st.warning(
-        "Nu am găsit o coloană de tip «Medie Orară Consum» "
-        "în fișierul încărcat."
-    )
-
-else:
-
-    df["Diferenta"] = (
-        df["Consum"] -
-        df["MedieOraraConsum"]
-    )
-
-    df["DiferentaAbsoluta"] = (
-        df["Diferenta"].abs()
-    )
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
-            "Diferență medie",
-            f"{df['Diferenta'].mean():,.1f} MW"
+            "Raport mediu",
+            f"{daily_stats['RaportVarfGol'].mean():.2f}"
         )
 
     with col2:
         st.metric(
-            "Diferență absolută medie",
-            f"{df['DiferentaAbsoluta'].mean():,.1f} MW"
+            "Raport median",
+            f"{daily_stats['RaportVarfGol'].median():.2f}"
         )
 
     with col3:
         st.metric(
-            "Deviație standard",
-            f"{df['Diferenta'].std():,.1f} MW"
+            "Raport minim",
+            f"{daily_stats['RaportVarfGol'].min():.2f}"
         )
 
     with col4:
         st.metric(
-            "Diferență maximă absolută",
-            f"{df['DiferentaAbsoluta'].max():,.1f} MW"
+            "Raport maxim",
+            f"{daily_stats['RaportVarfGol'].max():.2f}"
         )
 
 
-    fig_noise = px.histogram(
-        df,
-        x="Diferenta",
-        nbins=60,
-        title="Distribuția diferenței Consum - Medie Orară Consum"
+    fig_ratio = px.line(
+        daily_stats,
+        x="Data",
+        y="RaportVarfGol",
+        title="Variația zilnică a raportului vârf / gol"
     )
 
-    fig_noise.update_xaxes(
-        title="Diferență (MW)"
-    )
-
-    fig_noise.update_yaxes(
-        title="Număr de observații"
+    fig_ratio.update_yaxes(
+        title="Raport vârf / gol"
     )
 
     st.plotly_chart(
-        fig_noise,
+        fig_ratio,
         use_container_width=True
     )
 
 
-# ============================================================
-# 6. TEMPERATURĂ VS CONSUM
-# ============================================================
 
-st.header("6️⃣ Sensibilitatea consumului la temperatură")
+with tab3:
+    # ============================================================
+    # 3. LUCRĂTOARE VS WEEKEND VS SĂRBĂTORI
+    # ============================================================
 
+    st.header("3️⃣ Zile lucrătoare vs weekend vs sărbători")
 
-if "Temperatura" not in df.columns:
-
-    st.info(
-        "În fișierul încărcat nu există o coloană de temperatură. "
-        "Pentru această analiză trebuie adăugată temperatura "
-        "corespunzătoare fiecărei date/ore."
+    profile_day_type = (
+        df.groupby(["TipZi", "Ora"])["Consum"]
+        .mean()
+        .reset_index()
     )
 
-else:
+    fig_types = px.line(
+        profile_day_type,
+        x="Ora",
+        y="Consum",
+        color="TipZi",
+        markers=True,
+        title="Profilul mediu al consumului în funcție de tipul zilei"
+    )
 
-    temp_df = df[
-        ["Temperatura", "Consum"]
-    ].dropna()
+    fig_types.update_xaxes(
+        dtick=1,
+        title="Ora"
+    )
+
+    fig_types.update_yaxes(
+        title="Consum mediu (MW)"
+    )
+
+    st.plotly_chart(
+        fig_types,
+        use_container_width=True
+    )
 
 
-    if len(temp_df) >= 10:
 
-        fig_temp = px.scatter(
-            temp_df,
-            x="Temperatura",
-            y="Consum",
-            opacity=0.35,
-            title="Relația dintre temperatură și consum"
+with tab4:
+    # ============================================================
+    # 4. VÂRFUL DE SEARĂ ȘI SEZONALITATE
+    # ============================================================
+
+    st.header("4️⃣ Vârful de seară și sezonalitatea")
+
+    st.markdown(
+        """
+        Considerăm intervalul 17:00–23:00 drept interval de seară.
+        Pentru fiecare zi identificăm ora la care consumul este maxim
+        în acest interval.
+        """
+    )
+
+
+    evening_df = df[
+        df["Ora"].between(17, 23)
+    ].copy()
+
+
+    if not evening_df.empty:
+
+        evening_peak = (
+            evening_df
+            .loc[
+                evening_df.groupby("Data")["Consum"].idxmax()
+            ]
+            [["Data", "DataOra", "Ora", "Consum", "Sezon"]]
+            .copy()
         )
 
-        fig_temp.update_xaxes(
-            title="Temperatură"
+
+        # Distribuția orelor de vârf
+        # (bar pe valori exacte de oră, nu histogram cu nbins — cu doar
+        # 7 valori întregi posibile (17-23), nbins=7 plasează marginile
+        # binurilor între ore și amestecă zilele în binul greșit)
+        ore_counts = (
+            evening_peak["Ora"]
+            .value_counts()
+            .reindex(range(17, 24), fill_value=0)
+            .reset_index()
+        )
+        ore_counts.columns = ["Ora", "NumarZile"]
+
+        fig_peak = px.bar(
+            ore_counts,
+            x="Ora",
+            y="NumarZile",
+            title="Distribuția orei vârfului de seară"
         )
 
-        fig_temp.update_yaxes(
-            title="Consum (MW)"
+        fig_peak.update_xaxes(
+            dtick=1,
+            title="Ora vârfului de seară"
+        )
+
+        fig_peak.update_yaxes(
+            title="Număr de zile"
         )
 
         st.plotly_chart(
-            fig_temp,
+            fig_peak,
             use_container_width=True
         )
 
 
-        # Grupare pe intervale de temperatură
-        temp_df["IntervalTemperatura"] = pd.cut(
-            temp_df["Temperatura"],
-            bins=10
-        )
-
-        temp_profile = (
-            temp_df
-            .groupby(
-                "IntervalTemperatura",
-                observed=True
-            )["Consum"]
-            .mean()
+        # Sezon
+        seasonal_peak = (
+            evening_peak
+            .groupby("Sezon")["Ora"]
+            .agg(
+                OraMedie="mean",
+                OraMediana="median"
+            )
             .reset_index()
         )
 
-        # Temperatura (mijlocul intervalului) la care consumul mediu
-        # e minim — zona de "confort", fără nevoie de încălzire/răcire.
-        min_bin = temp_profile.loc[
-            temp_profile["Consum"].idxmin()
-        ]
+        st.subheader("Ora medie a vârfului de seară pe sezon")
 
-        temp_min_consum = min_bin["IntervalTemperatura"].mid
-
-        st.metric(
-            "🌡️ Temperatura cu consum mediu minim (zona de confort)",
-            f"~{temp_min_consum:.1f}°C",
-            f"{min_bin['Consum']:,.0f} MW"
+        st.dataframe(
+            seasonal_peak,
+            use_container_width=True,
+            hide_index=True
         )
 
-        # Transformăm intervalele în text pentru Plotly
-        temp_profile["IntervalTemperatura"] = (
-            temp_profile["IntervalTemperatura"]
-            .astype(str)
-        )
 
-        fig_temp_profile = px.line(
-            temp_profile,
-            x="IntervalTemperatura",
-            y="Consum",
-            markers=True,
-            title="Consum mediu în funcție de intervalul de temperatură"
-        )
 
-        fig_temp_profile.update_xaxes(
-            title="Interval temperatură"
-        )
+with tab5:
+    # ============================================================
+    # 5. CONSUM VS MEDIE ORARĂ
+    # ============================================================
 
-        fig_temp_profile.update_yaxes(
-            title="Consum mediu (MW)"
-        )
+    st.header("5️⃣ Consum instantaneu vs Medie Orară Consum")
 
-        st.plotly_chart(
-            fig_temp_profile,
-            use_container_width=True
+
+    if "MedieOraraConsum" not in df.columns:
+
+        st.warning(
+            "Nu am găsit o coloană de tip «Medie Orară Consum» "
+            "în fișierul încărcat."
         )
 
     else:
 
-        st.warning(
-            "Nu există suficiente observații valide pentru analiza "
-            "temperatură - consum."
+        df["Diferenta"] = (
+            df["Consum"] -
+            df["MedieOraraConsum"]
         )
+
+        df["DiferentaAbsoluta"] = (
+            df["Diferenta"].abs()
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric(
+                "Diferență medie",
+                f"{df['Diferenta'].mean():,.1f} MW"
+            )
+
+        with col2:
+            st.metric(
+                "Diferență absolută medie",
+                f"{df['DiferentaAbsoluta'].mean():,.1f} MW"
+            )
+
+        with col3:
+            st.metric(
+                "Deviație standard",
+                f"{df['Diferenta'].std():,.1f} MW"
+            )
+
+        with col4:
+            st.metric(
+                "Diferență maximă absolută",
+                f"{df['DiferentaAbsoluta'].max():,.1f} MW"
+            )
+
+
+        fig_noise = px.histogram(
+            df,
+            x="Diferenta",
+            nbins=60,
+            title="Distribuția diferenței Consum - Medie Orară Consum"
+        )
+
+        fig_noise.update_xaxes(
+            title="Diferență (MW)"
+        )
+
+        fig_noise.update_yaxes(
+            title="Număr de observații"
+        )
+
+        st.plotly_chart(
+            fig_noise,
+            use_container_width=True
+        )
+
+
+
+with tab6:
+    # ============================================================
+    # 6. TEMPERATURĂ VS CONSUM
+    # ============================================================
+
+    st.header("6️⃣ Sensibilitatea consumului la temperatură")
+
+
+    if "Temperatura" not in df.columns:
+
+        st.info(
+            "În fișierul încărcat nu există o coloană de temperatură. "
+            "Pentru această analiză trebuie adăugată temperatura "
+            "corespunzătoare fiecărei date/ore."
+        )
+
+    else:
+
+        temp_df = df[
+            ["Temperatura", "Consum"]
+        ].dropna()
+
+
+        if len(temp_df) >= 10:
+
+            fig_temp = px.scatter(
+                temp_df,
+                x="Temperatura",
+                y="Consum",
+                opacity=0.35,
+                title="Relația dintre temperatură și consum"
+            )
+
+            fig_temp.update_xaxes(
+                title="Temperatură"
+            )
+
+            fig_temp.update_yaxes(
+                title="Consum (MW)"
+            )
+
+            st.plotly_chart(
+                fig_temp,
+                use_container_width=True
+            )
+
+
+            # Grupare pe intervale de temperatură
+            temp_df["IntervalTemperatura"] = pd.cut(
+                temp_df["Temperatura"],
+                bins=10
+            )
+
+            temp_profile = (
+                temp_df
+                .groupby(
+                    "IntervalTemperatura",
+                    observed=True
+                )["Consum"]
+                .mean()
+                .reset_index()
+            )
+
+            # Temperatura (mijlocul intervalului) la care consumul mediu
+            # e minim — zona de "confort", fără nevoie de încălzire/răcire.
+            min_bin = temp_profile.loc[
+                temp_profile["Consum"].idxmin()
+            ]
+
+            temp_min_consum = min_bin["IntervalTemperatura"].mid
+
+            st.metric(
+                "🌡️ Temperatura cu consum mediu minim (zona de confort)",
+                f"~{temp_min_consum:.1f}°C",
+                f"{min_bin['Consum']:,.0f} MW"
+            )
+
+            # Transformăm intervalele în text pentru Plotly
+            temp_profile["IntervalTemperatura"] = (
+                temp_profile["IntervalTemperatura"]
+                .astype(str)
+            )
+
+            fig_temp_profile = px.line(
+                temp_profile,
+                x="IntervalTemperatura",
+                y="Consum",
+                markers=True,
+                title="Consum mediu în funcție de intervalul de temperatură"
+            )
+
+            fig_temp_profile.update_xaxes(
+                title="Interval temperatură"
+            )
+
+            fig_temp_profile.update_yaxes(
+                title="Consum mediu (MW)"
+            )
+
+            st.plotly_chart(
+                fig_temp_profile,
+                use_container_width=True
+            )
+
+        else:
+
+            st.warning(
+                "Nu există suficiente observații valide pentru analiza "
+                "temperatură - consum."
+            )
+
 
 
 # ============================================================
